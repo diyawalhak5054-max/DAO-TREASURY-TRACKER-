@@ -1,25 +1,28 @@
 // walletAdapter.ts
 //
-// NOTE ON "DELTA WALLET": at the time this project was generated, no public
-// SDK, npm package, or integration spec for a "Delta Wallet" could be found.
-// To keep the "Internet Identity + Delta Wallet" requirement honest rather
-// than guessing at a fake API, this file defines a small WalletAdapter
-// interface with:
-//   1. `internetIdentityAdapter` — fully working, using @dfinity/auth-client.
-//   2. `deltaWalletAdapter` — a stub that looks for a window.ic.deltaWallet
-//      injected-provider object (the common pattern used by other ICP
-//      wallets like Plug/Stoic/OISY). Replace the TODOs with real calls
-//      once Delta publishes their SDK or injected-provider API.
+// Only Internet Identity is listed here as a WalletAdapter, because a
+// WalletAdapter's job is to produce a signing `Identity` that
+// @dfinity/agent can use to make authenticated canister calls (sendICP,
+// approveProposal, addMember, ...).
 //
-// The rest of the app only depends on this interface, so wiring up the real
-// Delta Wallet later is a one-file change.
+// Delta's documented API (window.delta.*) is a separate thing: a native
+// bridge available whenever this dapp runs inside the Delta app's webview,
+// covering things like payments, confirm/alert/toast dialogs, QR
+// scan/display, and more — see src/lib/deltaBridge.ts. Nothing in Delta's
+// docs so far describes turning its `authByIdentToken()` result into an
+// agent Identity, so it can't sign canister calls on the member's behalf
+// today. If Delta later documents that step (an agent factory, or a
+// delegation-chain format for `dAppIdentToken`), add a `deltaWalletAdapter`
+// here alongside Internet Identity — the rest of the app only depends on
+// the WalletAdapter interface below, so that would be a small, contained
+// change.
 
 import { AuthClient } from "@dfinity/auth-client";
 import { Identity } from "@dfinity/agent";
 import { IDENTITY_PROVIDER } from "../lib/env";
 
 export interface WalletAdapter {
-  id: "internet-identity" | "delta-wallet";
+  id: "internet-identity";
   label: string;
   isAvailable: () => Promise<boolean>;
   connect: () => Promise<Identity>;
@@ -56,40 +59,4 @@ export const internetIdentityAdapter: WalletAdapter = {
   getIdentity: () => authClient?.getIdentity() ?? null,
 };
 
-// --- Delta Wallet (stub — see note above) -----------------------------------
-declare global {
-  interface Window {
-    ic?: {
-      deltaWallet?: {
-        requestConnect: (opts?: { whitelist?: string[] }) => Promise<{ principal: string }>;
-        disconnect: () => Promise<void>;
-        agent?: unknown;
-      };
-    };
-  }
-}
-
-export const deltaWalletAdapter: WalletAdapter = {
-  id: "delta-wallet",
-  label: "Delta Wallet",
-  isAvailable: async () => typeof window !== "undefined" && !!window.ic?.deltaWallet,
-  connect: async () => {
-    if (!window.ic?.deltaWallet) {
-      throw new Error(
-        "Delta Wallet was not detected in this browser. Install the Delta Wallet extension, or use Internet Identity instead."
-      );
-    }
-    // TODO: once Delta publishes a real SDK, swap this for their documented
-    // connect flow and return the Identity/agent it provides.
-    await window.ic.deltaWallet.requestConnect({});
-    throw new Error(
-      "Delta Wallet was detected, but this build doesn't yet know its identity format — update walletAdapter.ts once Delta's SDK is available."
-    );
-  },
-  disconnect: async () => {
-    await window.ic?.deltaWallet?.disconnect();
-  },
-  getIdentity: () => null,
-};
-
-export const walletAdapters: WalletAdapter[] = [internetIdentityAdapter, deltaWalletAdapter];
+export const walletAdapters: WalletAdapter[] = [internetIdentityAdapter];

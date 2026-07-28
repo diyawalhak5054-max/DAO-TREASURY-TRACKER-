@@ -5,21 +5,28 @@ transaction history, role-based sending (Admin / Treasurer), multi-signature app
 large transfers, member management, and CSV import/export. Everything runs in Motoko
 canisters — no off-chain APIs.
 
-> **Important note on "Delta Ecosystem" integration:** at the time this project was built,
-> no public documentation, SDK, or submission schema for a "Delta DApp Square" or
-> "Delta Wallet" could be found. Rather than guess at a fake API, this project:
-> - ships `delta.config.json` at the repo root as a best-guess metadata descriptor
->   (name/description/icon/category="DAO Tools") that you should reshape to match
->   Delta's real schema once you have it;
-> - implements Internet Identity fully (`src/treasury_frontend/src/auth/walletAdapter.ts`);
-> - implements a **Delta Wallet stub adapter** in the same file, behind the same
->   `WalletAdapter` interface as Internet Identity, with clear `TODO`s marking exactly
->   what to replace once Delta publishes a real connect flow (it currently looks for an
->   injected `window.ic.deltaWallet` provider, the common pattern used by other ICP
->   wallets, and throws a clear error explaining it's a placeholder).
+> **Note on Delta integration:** Delta's actual bridge API (`window.delta.*`) was provided
+> after this project's first pass and is now wired in — see
+> `src/treasury_frontend/src/lib/deltaBridge.ts` for typed wrappers around all of it
+> (`authByIdentToken`, `showConfirm`, `showAlert`, `toast`, `showQRcode`, `scanQR`, `openUrl`,
+> `walletPayment`, `listTransaction`, `listAvatarNickname`, `pickImage`, `translateText`,
+> `languageCode`; `showAd` was deliberately left unused — ads don't fit a fiduciary treasury
+> tool). Two things worth understanding about how it's used:
 >
-> Nothing about the ICP/Motoko/React parts of this project depend on that guess — only
-> the wallet button and the metadata file need updating once you have Delta's real docs.
+> - **These are not an alternative login for the canister.** Nothing in Delta's docs turns
+>   `authByIdentToken()`'s result into a signing `Identity` for `@dfinity/agent`, so
+>   authenticated canister calls (sending funds, approving proposals, managing members) still
+>   go through **Internet Identity** (`src/treasury_frontend/src/auth/walletAdapter.ts`). The
+>   navbar's "Link Delta Wallet" button is separate from "Connect" for exactly this reason.
+> - **`walletPayment` doesn't need that Identity at all** — Delta signs and moves funds itself,
+>   independent of our canister. That's what powers the **"Deposit via Delta Wallet"** card on
+>   the Send page: any member can top up the treasury straight from their personal Delta
+>   balance. If they're also logged in with Internet Identity, the deposit gets additionally
+>   logged to on-chain history via the new `recordDeposit` canister method.
+>
+> If Delta later documents an agent/Identity factory, wiring it into `walletAdapter.ts` as a
+> second `WalletAdapter` would let Delta Wallet fully replace Internet Identity for
+> canister actions too — everything else in the app is already built against that interface.
 
 ## Architecture
 

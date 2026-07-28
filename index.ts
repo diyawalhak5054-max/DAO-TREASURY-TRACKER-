@@ -94,6 +94,7 @@ export interface TreasuryBackend {
 
   getTransactions: () => Promise<Transaction[]>;
   sendICP: (to: string, amountE8s: bigint, memo: bigint, description: string) => Promise<ResultText>;
+  recordDeposit: (amountE8s: bigint, memo: bigint, note: string) => Promise<ResultUnit>;
 
   getProposals: () => Promise<Proposal[]>;
   approveProposal: (id: bigint) => Promise<ResultText>;
